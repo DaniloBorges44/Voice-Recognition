@@ -17,7 +17,8 @@ keys = {
     "roll" : "Key.space",
     "light" : "h",
     "heavy" : "u",
-    "use" : "e"
+    "use" : "e",
+    "lock" : "o"
 }
 
 # iniciando variaveis
