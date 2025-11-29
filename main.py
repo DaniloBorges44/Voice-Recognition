@@ -13,7 +13,11 @@ keys = {
     "forward" : "w",
     "backward" : "s",
     "left" : "a",
-    "right" : "d"
+    "right" : "d",
+    "roll" : "Key.space",
+    "light" : "h",
+    "heavy" : "u",
+    "use" : "e"
 }
 
 # iniciando variaveis
