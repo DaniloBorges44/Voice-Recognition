@@ -4,12 +4,12 @@ import math
 import struct
 import wave
 import time
-from pynput.keyboard import Key, Controller
+from pynput.keyboard import Controller
 
 # -- Configuração do ambiente --
 keyboard = Controller()
 model = whisper.load_model("small") # tiny, base, small, medium, large, turbo
-keys = {
+keys = { # Dicionario com os comandos e teclas correspondentes 
     "forward" : "w",
     "backward" : "s",
     "left" : "a",
@@ -24,84 +24,81 @@ keys = {
 # iniciando variaveis
 FORMAT = pa.paInt16      # Formato do audio
 CHANNELS = 1             # Tipo de saida: Mono
-RATE = 44100             # Frenquência do audio (Hz)
+RATE = 16000             # Frenquência do audio (Hz)
 CHUNK = 1024             # Frames por buffer
 FILENAME = 'output.wav'  # Nome do arquivo de saida
 
 def get_volume(stream): # Identifica o volume de cada frame
-
-        data = stream.read(CHUNK)
-        # Convert the binary data to a list of numbers
-        data_chunk = struct.unpack(str(CHUNK) + 'h', data)
-
-        # Calcula a media da raiz quadrada como o volume
-        volume = math.sqrt(sum([x**2 for x in data_chunk]) / len(data_chunk))
+    data = stream.read(CHUNK)
+    data_chunk = struct.unpack(str(CHUNK) + 'h', data)
+    volume = math.sqrt(sum([x**2 for x in data_chunk]) / len(data_chunk))
         
-        return volume
+    return volume
    
 def verify_volume(volume): # verifica se o volume é maior que determinado valor
-        if volume <= 50:
-            return 1
-        elif volume <= 150:
-            return 2
-        elif volume > 150:
-            return 3
-            
-def record_audio(): # Detecta o audio e salva em um arquivo WAV
+    if volume <= 50:
+        return 1
+    elif volume <= 150:
+        return 2
+    elif volume > 150:
+        return 3
+        
+def process_audio(): # Processa o audio capturado 
     try:
         audio = pa.PyAudio()
         stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,frames_per_buffer=CHUNK)
-
+        
         frames = []
-
-        for i in range(0, int(RATE / CHUNK * 2)):
+        
+        for i in range(0, int(RATE / CHUNK * 2)): # Salva os frames do audio
             data = stream.read(CHUNK)
             frames.append(data)
-
+            
+        # -- Salva os dados no arquivo de audio --
         wf = wave.open(FILENAME, 'wb')
         wf.setnchannels(CHANNELS)
         wf.setsampwidth(audio.get_sample_size(FORMAT))
         wf.setframerate(RATE)
         wf.writeframes(b''.join(frames))
         wf.close()
+        # -- Salva os dados no arquivo de audio --
+        
+        # -- Transcreve o audio --
+        audio_data = whisper.pad_or_trim(whisper.load_audio("output.wav"))
+        result = whisper.transcribe(model, audio_data, fp16=False)
+        print(result["text"])
+        # -- Transcreve o audio --
+        
+        detect_comand(result, stream)
     
-    
-        return stream
+    except Exception as e:
+        print(f"Erro ao processar áudio: {e}")
 
     finally:
         stream.stop_stream()
         stream.close()
         audio.terminate()
-    
-def detect_comand(stream): # Detecta e realiza o comando falado
+
+def detect_comand(result, stream): # Detecta e realiza o comando falado
     for segment in result["segments"]:
-        if segment["text"].lower() in keys:
-            match verify_volume(get_volume(stream)):
-                case 1:
-                    keyboard.press(keys[segment["text"].lower()])
-                    time.sleep(0.5) 
-                    keyboard.release(keys[segment["text"].lower()])
-                case 2:
-                    keyboard.press(keys[segment["text"].lower()])
-                    time.sleep(1) 
-                    keyboard.release(keys[segment["text"].lower()])
-                case 3:
-                    keyboard.press(keys[segment["text"].lower()])
-                    time.sleep(2) 
-                    keyboard.release(keys[segment["text"].lower()])
-                case _:
-                    print("Erro ao realizar ação")
+        text = segment["text"].lower().lstrip()
+        
+        if keys.get(text):
+            volume = verify_volume(get_volume(stream))
+            press_time = {1: 0.5, 2: 1, 3: 2}.get(volume, 0.5) # Dicionario que relaciona o volume com o tempo precionado
+            
+            print("Precionando tecla: " + keys[text])
+            keyboard.press(keys[text])
+            time.sleep(press_time)
+            keyboard.release(keys[text])
+            
         else:
             break
    
 while True: # Loop principal
     try: 
-        stream = record_audio()
-        audio = whisper.pad_or_trim(whisper.load_audio("output.wav"))
-        result = whisper.transcribe(model, audio, fp16=False)
-        print(result["text"])
-        detect_comand(stream)
-        
+        process_audio()
+        time.sleep(0.1) # sleep para evitar erros
     except KeyboardInterrupt:
         break
     except Exception as e:
