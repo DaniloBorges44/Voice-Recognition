@@ -18,7 +18,8 @@ keys = { # Dicionario com os comandos e teclas correspondentes
     "light" : "h",
     "heavy" : "u",
     "use" : "e",
-    "lock" : "o"
+    "lock" : "o",
+    "thank you." :"y"
 }
 
 # iniciando variaveis
@@ -50,7 +51,7 @@ def process_audio(): # Processa o audio capturado
         
         frames = []
         
-        for i in range(0, int(RATE / CHUNK * 2)): # Salva os frames do audio
+        for i in range(0, int(RATE / CHUNK * 1)): # Salva os frames do audio, ultimo numero é o tempo que ele capta o audio
             data = stream.read(CHUNK)
             frames.append(data)
             
@@ -66,7 +67,7 @@ def process_audio(): # Processa o audio capturado
         # -- Transcreve o audio --
         audio_data = whisper.pad_or_trim(whisper.load_audio("output.wav"))
         result = whisper.transcribe(model, audio_data, fp16=False)
-        print(result["text"])
+        print("Fala detectada: " + result["text"].lstrip())
         # -- Transcreve o audio --
         
         detect_comand(result, stream)
@@ -86,19 +87,18 @@ def detect_comand(result, stream): # Detecta e realiza o comando falado
         if keys.get(text):
             volume = verify_volume(get_volume(stream))
             press_time = {1: 0.5, 2: 1, 3: 2}.get(volume, 0.5) # Dicionario que relaciona o volume com o tempo precionado
-            
-            print("Precionando tecla: " + keys[text])
+            print(f"Tecla pressionada: {keys[text]}")
             keyboard.press(keys[text])
             time.sleep(press_time)
             keyboard.release(keys[text])
             
         else:
             break
-   
+
 while True: # Loop principal
     try: 
         process_audio()
-        time.sleep(0.1) # sleep para evitar erros
+        time.sleep(0.1) # sleep para evitar erros      
     except KeyboardInterrupt:
         break
     except Exception as e:
